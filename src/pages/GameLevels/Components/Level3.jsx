@@ -3,23 +3,48 @@ import backgroundImage from "../../../assets/th (1).jpeg";
 import Popup from "../../../components/ui/Popup";
 import ApiPopup from "../../../components/ui/ApiPopup";
 import { useNavigate } from "react-router-dom";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { auth, db } from "../../../Firebase/config"; // Firebase import
 
-
-export default function Level3({ nextLevel }) {
-  const [question, setQuestion] = useState({
+export default function Level3() {
+  const [question] = useState({
     text: "What is the capital of Japan?",
     options: ["Tokyo", "Kyoto", "Osaka", "Nagasaki"],
-    answer: "Tokyo"
+    answer: "Tokyo",
   });
-
-  const [timer, setTimer] = useState(20);
+  const [username, setUsername] = useState("Loading...");
+  const [score, setScore] = useState(0);
+  const [timer, setTimer] = useState(60);
   const [hearts, setHearts] = useState(4);
   const [quizEnded, setQuizEnded] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
   const [showPopup, setShowPopup] = useState(false);
   const [apiPopupVisible, setApiPopupVisible] = useState(false);
   const [isCorrectAnswer, setIsCorrectAnswer] = useState(false);
+ 
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const user = auth.currentUser;
+        if (user) {
+          const userRef = doc(db, "users", user.uid);
+          const userDoc = await getDoc(userRef);
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setUsername(userData.name || "Guest");
+            setScore(userData.score || 0);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
 
   useEffect(() => {
     if (timer === 0) {
@@ -38,12 +63,27 @@ export default function Level3({ nextLevel }) {
     return () => clearInterval(interval);
   }, [timer]);
 
+  const updateScoreInFirebase = async (newScore) => {
+    const userRef = doc(db, "users", auth.currentUser.uid);
+    try {
+      await updateDoc(userRef, {
+        score: newScore,
+      });
+      console.log("Score updated in Firebase.");
+    } catch (error) {
+      console.error("Error updating score: ", error);
+    }
+  };
+
   const handleAnswer = (option) => {
     if (quizEnded) return;
 
     if (option === question.answer) {
       setIsCorrectAnswer(true);
       setApiPopupVisible(true);
+      const newScore = score + 15; // Increment score for correct answer
+      setScore(newScore); // Update score in state
+      updateScoreInFirebase(newScore); // Update score in Firebase
     } else {
       if (hearts > 1) {
         setHearts(hearts - 1);
@@ -62,8 +102,11 @@ export default function Level3({ nextLevel }) {
     console.log("API Popup Closed:", data); // Debugging log
     setApiPopupVisible(false); // Close ApiPopup
     if (data && data.isValid) {
-      console.log("Navigating to Level 2");
-      navigate("/level4"); // Navigate to Level 2 on success
+      console.log("Navigating to Level 4");
+      const newScore = score + 10; // Increment score for popup validation
+      setScore(newScore); // Update score in state
+      updateScoreInFirebase(newScore); // Update score in Firebase
+      navigate("/level4", { state: { username, score: newScore } }); // Pass username and score to Level 4
     } else {
       console.log("Validation failed");
       setPopupMessage("API validation failed. Try again.");
@@ -95,12 +138,21 @@ export default function Level3({ nextLevel }) {
   return (
     <div
       className="flex flex-col items-center justify-center min-h-screen bg-cover bg-center"
-      style={{ backgroundImage: `url(${backgroundImage})` }}
+      style={{ backgroundImage: `url(${backgroundImage})` }} // Fixed background image URL
     >
-      <header className="fixed top-4 text-center text-5xl font-extrabold text-yellow-300">
-        🤷‍♂️ Bananuiz 🤷‍♂️
+     <header className="fixed top-4 w-full flex flex-col items-center text-center text-yellow-300">
+      <h1 className="text-5xl font-extrabold">🤷‍♂ Bananuiz 🤷‍♂</h1>
+        <div className="mt-2 flex space-x-6 text-lg font-semibold text-white">
+          <div>
+            <span className="text-gray-300">Username: </span>
+            <span className="text-yellow-300">{username}</span>
+          </div>
+          <div>
+            <span className="text-gray-300">Score: </span>
+            <span className="text-yellow-300">{score}</span>
+          </div>
+        </div>
       </header>
-
       <div className="w-full max-w-lg p-8 space-y-6 rounded-lg shadow-lg backdrop-blur-md bg-white/10 mt-24">
         <h2 className="text-3xl font-bold text-center text-white">Level 3</h2>
 
@@ -117,6 +169,8 @@ export default function Level3({ nextLevel }) {
             ))}
           </div>
         </div>
+
+        
 
         <p className="text-xl font-semibold text-center text-white mt-4">
           {question.text}
@@ -138,6 +192,7 @@ export default function Level3({ nextLevel }) {
             </button>
           ))}
         </div>
+
         <div className="mt-6 flex justify-between">
           <button
             onClick={handleLogOut}

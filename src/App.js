@@ -14,8 +14,8 @@ function App() {
     <Router>
       <Routes>
         <Route path="/"  element={<Start/>}/>
-        <Route path="login" element={<Login/>} />
         <Route path="register" element={<Register/>} />
+        <Route path="login" element={<Login/>} />
         <Route path="level1" element={<Level1/>} />
         <Route path="level2" element={<Level2/>}/>
         <Route path="level3" element={<Level3/>}/>
